@@ -1,0 +1,9 @@
+# Removing pycache and venv
+venv
+__pycache__
+**/__pycache__/*
+*.pyc
+
+# Ignoring all Pycharm files except runConfiguration
+.idea/*
+!.idea/runConfigurations/*
