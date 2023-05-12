@@ -10,7 +10,38 @@ __author__ = "nightly5"
 __license__ = "MIT"
 
 import re
+import requests
 import xdcc_anime
+
+
+def prepare_mock_data():
+    """
+    Fetches the data using a requests session.
+    """
+    with requests.session() as session:
+        print("\033[36mFetching data from the bot…\033[0m")
+        try:
+            for link, file_name in [
+                (
+                    "https://arutha.info/xdcc/CR-NL.NEW.xdcc.txt",
+                    "CR-ARUTHA.NEW.xdcc.txt"
+                ),
+                (
+                    "https://arutha.info/xdcc/ARUTHA-BATCH.1080p.xdcc.txt",
+                    "ARUTHA-BATCH.1080p.xdcc.txt"
+                )
+            ]:
+                with (session.get(link) as r, open(file_name, "w") as f):
+                    if r.status_code == 200:
+                        f.write(r.text)
+                    else:
+                        print(
+                            "\033[31mThe required data cannot be fetched."
+                            f" \033[1;36m{r.status_code} {r.reason}\033[0m"
+                        )
+        except KeyboardInterrupt:
+            print("\033[31mRequest manually stopped by the user.\033[0m")
+            exit(130)
 
 def _mock_data():
     with (

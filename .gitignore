@@ -7,3 +7,6 @@ __pycache__
 # Ignoring all Pycharm files except runConfiguration
 .idea/*
 !.idea/runConfigurations/*
+
+# Ignore txt files downloaded for mocking
+*.txt
