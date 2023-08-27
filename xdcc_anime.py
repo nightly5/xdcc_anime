@@ -27,6 +27,7 @@ BOTS: OrderedDict[str, str] = OrderedDict({
 
 PRINT_EACH_PACK: bool = False
 
+_res = None
 for _res in ('720', '1080'):
     BOTS[f"ARUTHA-BATCH|{_res}p"] = f"https://arutha.info/xdcc/ARUTHA-BATCH.{_res}p.xdcc.txt"
 del _res
@@ -42,7 +43,7 @@ class Episode(t.TypedDict):
     FileSize: str
     Uploader: str
     AnimeName: str
-    EpisodeNo: str
+    EpisodeNo: str | None
 
 
 def main() -> None:
@@ -60,7 +61,9 @@ def main() -> None:
 
     res: str = input(
         "Enter the resolution for download (480p/720p/1080p): ").casefold()
-    if not re.search(r"(\d+)p", res):
+    if len(res) == 0:
+        res = '1080p'
+    elif res.lower() not in ('480p', '720p', '1080p'):
         print(f"\033[1;31m{res} is not a valid resolution.\033[0m")
         exit(1)
 
@@ -70,20 +73,23 @@ def main() -> None:
             f"    \033[1m{i if len(BOTS) > 1 else ''}.\033[0;36m {bot}\033[0m"
         )
     bot: str = input(
-        "Enter the number or the name of bot(case-sensitive): "
+        f"Enter the number or the name of bot (case-sensitive): [1] "
     )
-    try:
-        if (i := int(bot) - 1) < 0:
-            print("\033[1;31mThere is no bot for the given number.\033[0m")
+    if len(bot) == 0:
+        bot = bot = tuple(BOTS.items())[0][0]
+    else:
+        try:
+            if (i := int(bot) - 1) < 0:
+                print("\033[1;31mThere is no bot for the given number.\033[0m")
+                exit(1)
+            bot = tuple(BOTS.items())[i][0]
+        except IndexError:
+            print("\033[1;31mThere is no bot for the given number.\033[m")
             exit(1)
-        bot = tuple(BOTS.items())[i][0]
-    except IndexError:
-        print("\033[1;31mThere is no bot for the given number.\033[m")
-        exit(1)
-    except ValueError:
-        if bot not in BOTS:
-            print("\033[1;31mThere is no such bot.\033[m")
-            exit(1)
+        except ValueError:
+            if bot not in BOTS:
+                print("\033[1;31mThere is no such bot.\033[m")
+                exit(1)
 
     fetch_data(anime_name, res, bot)
 
@@ -121,7 +127,7 @@ def process_data(anime_name: str, res: str, bot: str, text: str) -> None:
             episode = t.cast(Episode, ep_match.groupdict())
             pack_nums.append(episode["PackNum"])
             if (name := episode["AnimeName"]) not in names:
-                names.append(name)
+                names.append(name.strip())
             if PRINT_EACH_PACK:
                 print_result(episode)
 
@@ -131,7 +137,7 @@ def process_data(anime_name: str, res: str, bot: str, text: str) -> None:
 
     _extract_pack_info(pack_nums, anime_names, data)
     if not pack_nums:
-        data = deserialize_data(anime_name, res, text, False)
+        data = deserialize_data(anime_name, res, text, True)
         _extract_pack_info(pack_nums, anime_names, data)
 
     print(
@@ -192,35 +198,48 @@ def process_data(anime_name: str, res: str, bot: str, text: str) -> None:
 
 
 def deserialize_data(
-    anime: str, res: str, data: str, subsplease: bool = True
+    anime: str, res: str, data: str, ep_opt: bool = False
 ) -> t.Iterator[re.Match[str]]:
     """
     Provides an iterative interface to the fetched data using Python's regex
     engine which returns a match object on each iteration.
     """
     re_text: str = (
-        r"(?P<PackNum>#\d+)(?:\s*)"
-        r"(?:[\dx]+)(?:[\s\[]+)"
-        r"(?P<FileSize>[\d\.BKMGT]+)(?:[\]\s\[]+)"
-        r"(?P<Uploader>.+)(?:\])(?:\s*)"
-        fr"(?P<AnimeName>{anime}.*)(?:\s-\s)"
-        fr"(?P<EpisodeNo>[v\d]+)(?:[\s]*"
+        r"(?P<PackNum>#\d+)"
+        r"(?:\s*\d+x\s*\[)"
+        r"(?P<FileSize>[\d\.]+[BKMGT])"
+        r"(?:\]\s*\[)"
+        r"(?P<Uploader>.+)"
+        r"(?:\]\s*)"
+        fr"(?P<AnimeName>{anime}.*)"
     )
-    if subsplease:
-        return re.finditer(fr"{re_text}\({res})", data, flags=re.IGNORECASE)
-    else:
-        return re.finditer(fr"{re_text}\[{res})", data, flags=re.IGNORECASE)
+    if not ep_opt:
+        # Having this part of the pattern optional in directly in regex
+        # makes {anime}'s .* consume the episode number as well.
+        re_text += (
+            r"(?:\s-\s)"
+            r"(?P<EpisodeNo>[v\d]+)"
+        )
+    re_text += (
+        r"(?:\s*[\(\[])"
+        fr"(?P<Resolution>{res})"
+    )
+    return re.finditer(re_text, data, flags=re.IGNORECASE)
 
 
 def print_result(episode: Episode) -> None:
     """
     Prints result in packlist format (but filtered and easy-to-digest).
     """
-    print(
-        f"\033[32m{episode['PackNum']} \033[35m{episode['AnimeName']} \033[0m- "
-        f"\033[36m{episode['EpisodeNo']} \033[0;1m({episode['FileSize']})"
-        f"\033[0m by {episode['Uploader']}"
+    output = (
+        f"\033[32m{episode['PackNum']} \033[35m{episode['AnimeName'].strip()} "
     )
+    if episode.get('EpisodeNo'):
+        output += f"\033[0m- \033[36m{episode['EpisodeNo']} "
+    output += (
+        f"\033[0;1m({episode['FileSize']})\033[0m by {episode['Uploader']}"
+    )
+    print(output)
 
 
 if __name__ == "__main__":

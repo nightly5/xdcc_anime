@@ -10,6 +10,8 @@ __author__ = "nightly5"
 __license__ = "MIT"
 
 import re
+import sys
+
 import requests
 import xdcc_anime
 
@@ -74,11 +76,20 @@ def _mock_data():
             "1080p",
             "ARUTHA-BATCH|1080p",
             f1_txt
-        )
+        ),
+        (
+            re.escape("kakushigoto movie"), # single ep with no episode number
+            "1080p",
+            "CR-HOLLAND|NEW",
+            f2_txt
+        ),
     )
     for i, args in enumerate(args_list):
-        print(f"\nMock {i+1}:")
+        print(f"\nMock {i+1}: {args[0]}")
+        xdcc_anime.PRINT_EACH_PACK = True
         xdcc_anime.process_data(*args)
 
 if __name__ == "__main__":
+    if sys.argv.pop() in ('--get-deta', '-g'):
+        prepare_mock_data()
     _mock_data()
